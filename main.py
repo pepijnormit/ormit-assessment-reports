@@ -9,7 +9,12 @@ from redact import *
 from prompting import *
 from write_report import *
 from time import sleep
+from global_signals import global_signals
 
+##For debugging only:
+print('YOU NEED TO COMMENT THIS OUT BEFORE EXE')
+script_directory = os.path.dirname(os.path.abspath(__file__))
+os.chdir(script_directory)  
 
 # Function to get the correct path for accessing resources in a bundled app
 def resource_path(relative_path):
@@ -56,7 +61,7 @@ class ProcessingThread(QThread):
 class MainWindow(QWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setWindowTitle("ORMIT - Organize CV book v1.0")
+        self.setWindowTitle("ORMIT - Draft Assessment Report v1.0")
         self.setWindowIcon(QIcon(icon_path))
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowStaysOnTopHint)
         # self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint)
@@ -67,6 +72,16 @@ class MainWindow(QWidget):
 
         layout = QGridLayout()
         self.setLayout(layout)
+
+        # Initialize the message box once here
+        self.msg_box = QMessageBox(self)
+        self.msg_box.setWindowTitle("Processing")
+        self.msg_box.setStandardButtons(QMessageBox.StandardButton.NoButton)
+        self.msg_box.setWindowFlags(self.msg_box.windowFlags() | Qt.WindowType.WindowMinimizeButtonHint)
+        self.msg_box.setStandardButtons(QMessageBox.StandardButton.Close)  # Add Close button
+        self.msg_box.button(QMessageBox.StandardButton.Close).clicked.connect(self.close_application)
+
+        global_signals.update_message.connect(self.refresh_message_box)
 
         # Load the logo
         pixmap = QPixmap(logo_path)
@@ -159,6 +174,13 @@ class MainWindow(QWidget):
 
         # Counter for selected files
         self.selected_files_count = 0
+    
+    def refresh_message_box(self, message):
+        self.msg_box.setText(message)
+        self.msg_box.show()
+    def close_application(self):
+        # This will close the application when the messagebox is closed manually
+        QApplication.quit()
 
     def open_file_dialog(self, file_index):
         dialog = QFileDialog(self)
@@ -204,17 +226,7 @@ class MainWindow(QWidget):
                 "Assessment Notes": self.selected_files.get("Assessment Notes", "")
             }
         }
-        
-        self.msg_box = QMessageBox(self)
-        self.msg_box.setWindowTitle("Processing")
-        self.msg_box.setText("Please wait, your files are being processed...")
-        self.msg_box.setStandardButtons(QMessageBox.StandardButton.NoButton)  # No buttons for processing state
-        
-        # Make the message box minimizable
-        self.msg_box.setWindowFlags(self.msg_box.windowFlags() | Qt.WindowType.WindowMinimizeButtonHint)
-        
-        self.msg_box.show()
-        
+               
         # Start the processing thread
         self.processing_thread = ProcessingThread(GUI_data)
         self.processing_thread.processing_completed.connect(self.on_processing_completed)
@@ -226,24 +238,6 @@ class MainWindow(QWidget):
         os.startfile(updated_doc)
 
         self.close()
-
-        
-        # #Redact and store files:
-        # redact_folder(GUI_data)
-        # print('Redaction completed')
-        
-        # #Send prompts to OpenAI:
-        # output_path = send_prompts(GUI_data)
-        # print('Drafting completed')
-
-        # # Convert json to report:
-        # clean_data = clean_up(output_path)
-        # updated_doc = update_document(clean_data, GUI_data["Applicant Name"], GUI_data["Assessor Name"], GUI_data["Gender"])
-        # print('Writing completed')
-        
-        # self.msg_box.close() 
-        # os.startfile(updated_doc)    
-        # self.close()  # Close the main window
 
 
 if __name__ == '__main__':

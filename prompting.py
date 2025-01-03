@@ -2,6 +2,7 @@ import time
 from openai import OpenAI
 from datetime import datetime
 import json
+from global_signals import global_signals
 
 def get_custom_key_list(prompts):
     custom_keys = []
@@ -86,6 +87,7 @@ prompts = {
 
 def send_prompts(data):
     print('Prompting started')
+    global_signals.update_message.emit("Connecting to OpenAI...")
     results = {}
     #For filename:
     current_time = datetime.now()
@@ -96,9 +98,10 @@ def send_prompts(data):
     path_to_persontest = 'temp/PAPI Feedback.pdf'
     path_to_cogcap = 'temp/Cog. Test.pdf'
     #Default
-    path_to_contextfile = 'resources/Context and Task Description.docx'
-    path_to_toneofvoice = 'resources/Examples Personality Section.docx'
-    path_to_mcpprofile = 'resources/The MCP Profile.docx'
+
+    path_to_contextfile = r'resources\Context and Task Description.docx'
+    path_to_toneofvoice = r'resources\Examples Personality Section.docx'
+    path_to_mcpprofile = r'resources\The MCP Profile.docx'
     
     start_time = time.time()
     
@@ -127,6 +130,8 @@ def send_prompts(data):
     if not hasattr(assistant, 'id'):
         raise Exception("Assistant creation failed or ID not found.")
     
+    global_signals.update_message.emit("Succesfully connected, uploading files...")
+
     # Create the vector store
     vector_store = client.beta.vector_stores.create(name="Assessment_Data", expires_after={
         "anchor": "last_active_at",
@@ -153,6 +158,8 @@ def send_prompts(data):
         tool_resources={"file_search": {"vector_store_ids": [vector_store.id]}},
     )
     
+    global_signals.update_message.emit("Files uploaded, starting prompts...")
+    
     # Now you should have access to the updated assistant's ID
     assistID = assistant.id
     print(f"Assistant ID: {assistID}")
@@ -161,8 +168,10 @@ def send_prompts(data):
     lst_prompts = get_custom_key_list(prompts)
     print(lst_prompts)
     
-    for prom in lst_prompts:
+    for promno, prom in enumerate(lst_prompts, start=1):
         print(prom)
+        global_signals.update_message.emit(f"Processing prompt {promno}/{len(lst_prompts)}, please wait...")
+
         if prom in ['prompt4_cogcap', 'prompt6a_conqual']:
             time.sleep(61) #To not overload server and avoid minute rate limit
                
@@ -206,7 +215,7 @@ def send_prompts(data):
         print(f"{output_label}: {output}")
         
         appl_name = data["Applicant Name"]
-        filename_with_timestamp = f"data/{appl_name}_{formatted_time}.json"  # Filename with timestamp
+        filename_with_timestamp = f"{appl_name}_{formatted_time}.json"  # Filename with timestamp
         with open(filename_with_timestamp, 'w') as json_file:
             json.dump(results, json_file, indent=4)  # 'indent=4' for pretty printing
             
@@ -220,4 +229,5 @@ def send_prompts(data):
         print(f"Deleted file {file_id}")
     client.beta.assistants.delete(assistant.id)
     
+    global_signals.update_message.emit(f"Prompting finished, generating report...")
     return filename_with_timestamp

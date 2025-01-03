@@ -9,6 +9,10 @@ import ast
 import json
 import re
 
+print('YOU NEED TO COMMENT THIS OUT BEFORE EXE')
+script_directory = os.path.dirname(os.path.abspath(__file__))
+os.chdir(script_directory)  
+
 def resource_path(relative_path):
     try:
         base_path = sys._MEIPASS
@@ -96,6 +100,7 @@ def update_document(output_dic, name, assessor, gender):
     formatted_time = current_time.strftime("%m%d%H%M")  # Format as MMDDHHMinMin
     updated_doc_path = f"Assessment Report - {name} - {formatted_time}.docx"
     doc.save(updated_doc_path)
+    os.startfile(updated_doc_path)
     return updated_doc_path
 
 def replacePiet(text, name, gender):
